@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const ERROR_MESSAGES = {
   DUPLICATE_EMAIL: 'El correo ya está registrado',
   INVALID_EMAIL: 'El formato del correo no es válido',
+  INVALID_DOMAIN: 'Solo se permiten correos institucionales (@uteq.edu.mx)',
   USER_NOT_FOUND: 'Usuario no encontrado',
   WRONG_PASSWORD: 'Contraseña incorrecta',
   PENDING_APPROVAL: 'Tu cuenta está pendiente de aprobación',
@@ -13,6 +14,7 @@ const ERROR_MESSAGES = {
 };
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ALLOWED_DOMAIN = '@uteq.edu.mx';
 
 // VALIDATION STRATEGIES (Funciones helper)
 
@@ -32,6 +34,15 @@ const normalizeEmail = (email) => {
  */
 const isValidEmailFormat = (email) => {
   return EMAIL_REGEX.test(email);
+};
+
+/**
+ * Verifica si el correo pertenece al dominio permitido
+ * @param {string} email 
+ * @returns {boolean}
+ */
+const isAllowedDomain = (email) => {
+  return email.endsWith(ALLOWED_DOMAIN);
 };
 
 /**
@@ -63,6 +74,15 @@ const validateEmailForRegistration = async (conn, email) => {
     return {
       isValid: false,
       error: ERROR_MESSAGES.INVALID_EMAIL,
+      statusCode: 400
+    };
+  }
+  
+  // Validación de dominio institucional
+  if (!isAllowedDomain(normalizedEmail)) {
+    return {
+      isValid: false,
+      error: ERROR_MESSAGES.INVALID_DOMAIN,
       statusCode: 400
     };
   }
