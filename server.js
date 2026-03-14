@@ -9,40 +9,65 @@ const catalogoRoutes = require('./src/routes/catalogo.routes');
 const horarioRoutes = require('./src/routes/horario.routes');
 const listaEsperaRoutes = require('./src/routes/listaEspera.routes');
 const inscripcionRoutes = require('./src/routes/inscripcion.routes');
-const adminAsistenciaRoutes = require("./src/routes/adminAsistencia.routes")
+const adminAsistenciaRoutes = require("./src/routes/adminAsistencia.routes");
 const periodoRoutes = require('./src/routes/adminConvocatoria.routes');
+// const propuestaRoutes = require('./src/routes/propuesta.routes'); // 👈 Próximamente
 
 const app = express();
 const prisma = new PrismaClient();
 
-//Middlewares
-app.use(cors());
+// ==========================================
+// Middlewares
+// ==========================================
+
+// Configuración de CORS más explícita para evitar el "Failed to fetch"
+app.use(cors({
+  origin: 'http://localhost:3000', // El puerto de tu Next.js
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
-// rutas principales
+// Logger simple: Te avisará en la terminal qué ruta están picando
+app.use((req, res, next) => {
+  console.log(`📡 Petición recibida: ${req.method} ${req.url}`);
+  next();
+});
+
+// ==========================================
+// Rutas principales
+// ==========================================
 app.use('/api/auth', authRoutes);
 app.use('/api/catalogo', catalogoRoutes);
 app.use('/api/horarios', horarioRoutes);
 app.use('/api/lista-espera', listaEsperaRoutes);
 app.use('/api/inscripciones', inscripcionRoutes);
-app.use("/api/admin-asistencia", adminAsistenciaRoutes)
+app.use("/api/admin-asistencia", adminAsistenciaRoutes);
+app.use('/api/admin-convocatoria', periodoRoutes);
+// app.use('/api/propuestas', propuestaRoutes); // 👈 Próximamente
+
 app.use('/uploads', express.static('uploads'));
 
-app.use('/api/admin-convocatoria', periodoRoutes);
-
-//Ruta de prueba
-app.get('/test', async (req, res) => {
+// Ruta de prueba de DB
+app.get('/test-db', async (req, res) => {
   try {
-    const usuarios = await prisma.usuario.findMany({ take: 5 });
-    res.json({ message: 'Conexión exitosa', usuarios });
+    const totalUsuarios = await prisma.usuario.count();
+    res.json({ message: 'Conexión a MySQL exitosa', usuariosEnSistema: totalUsuarios });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error de conexión', error });
+    console.error("❌ Error en test-db:", error);
+    res.status(500).json({ message: 'Error de conexión', details: error.message });
   }
 });
 
-//Puerto
+// ==========================================
+// Puerto y Encendido
+// ==========================================
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`
+  🚀 SchedMaster Backend listo!
+  🌍 URL: http://localhost:${PORT}
+  🛠️  CORS habilitado para puerto 3000
+  `);
 });
