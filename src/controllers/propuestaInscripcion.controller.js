@@ -15,7 +15,7 @@ const enviarPropuesta = async (req, res) => {
       });
     }
 
-    // 🔹 buscar usuario
+    //  buscar usuario
     const usuario = await prisma.usuario.findUnique({
       where: {
         correo: correo
@@ -28,7 +28,7 @@ const enviarPropuesta = async (req, res) => {
       });
     }
 
-    // 🔹 buscar inscripción pendiente
+    //  buscar inscripción pendiente
     const inscripcion = await prisma.inscripcion.findFirst({
       where: {
         id_usuario: usuario.id_usuario,
@@ -42,7 +42,7 @@ const enviarPropuesta = async (req, res) => {
       });
     }
 
-    // 🔹 obtener horario
+    //  obtener horario
     const horario = await prisma.horario.findUnique({
       where: {
         id_horario: parseInt(horarioId)
@@ -58,7 +58,7 @@ const enviarPropuesta = async (req, res) => {
     const horaInicio = horario.hora_inicio.substring(11,16);
     const horaFin = horario.hora_fin.substring(11,16);
 
-    // 🔹 obtener días
+    //  obtener días
     const diasDB = await prisma.dia.findMany({
       where: {
         id_dia: {
@@ -69,7 +69,7 @@ const enviarPropuesta = async (req, res) => {
 
     const diasTexto = diasDB.map(d => d.nombre).join(', ');
 
-    // 🔹 cancelar propuestas pendientes anteriores
+    //  cancelar propuestas pendientes anteriores
     await prisma.propuesta.updateMany({
       where: {
         id_inscripcion: inscripcion.id_inscripcion,
@@ -80,7 +80,7 @@ const enviarPropuesta = async (req, res) => {
       }
     });
 
-    // 🔹 crear propuesta
+    //  crear propuesta
     const propuesta = await prisma.propuesta.create({
       data: {
         id_inscripcion: inscripcion.id_inscripcion,
@@ -90,7 +90,7 @@ const enviarPropuesta = async (req, res) => {
       }
     });
 
-    // 🔹 guardar días
+    //  guardar días
     await prisma.propuestaDia.createMany({
       data: dias.map(d => ({
         id_propuesta: propuesta.id_propuesta,
@@ -98,7 +98,7 @@ const enviarPropuesta = async (req, res) => {
       }))
     });
 
-    // 🔹 actualizar inscripción
+    //actualizar inscripción
     await prisma.inscripcion.update({
       where: {
         id_inscripcion: inscripcion.id_inscripcion
@@ -108,7 +108,7 @@ const enviarPropuesta = async (req, res) => {
       }
     });
 
-    // 🔹 correo
+    //correo
     const html = `
       <div style="font-family: Arial; max-width:600px; margin:auto;">
 
