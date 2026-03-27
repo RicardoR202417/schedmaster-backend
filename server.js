@@ -64,6 +64,12 @@ app.get('/test-db', async (req, res) => {
     res.status(500).json({ message: 'Error de conexión', details: error.message });
   }
 });
+const anuncioRoutes = require('./src/routes/anuncio.routes');
+
+app.use('/api/anuncios', anuncioRoutes);
+
+// ✅ SOLO esto (sin volver a declarar express)
+app.use('/imagenes', express.static('public/imagenes'));
 
 // ==========================================
 // Puerto y Encendido

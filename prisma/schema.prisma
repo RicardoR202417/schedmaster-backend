@@ -205,3 +205,12 @@ model PropuestaDia {
   dia       Dia       @relation(fields: [id_dia], references: [id_dia])
   @@map("propuesta_dia")
 }
+model Anuncio {
+  id                 Int      @id @default(autoincrement())
+  titulo             String
+  descripcion        String
+  prioridad          String
+  fotografia         String?
+  fecha_publicacion  DateTime @default(now())
+  activo             Boolean  @default(true)
+}
