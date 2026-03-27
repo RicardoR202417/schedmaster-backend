@@ -28,6 +28,10 @@ const upload = multer({storage})
    RUTAS
 ========================== */
 
+// =====================
+// HISTÓRICO
+// =====================
+
 // subir archivo + generar hash
 router.post(
   "/upload-and-hash",
@@ -39,6 +43,23 @@ router.post(
 router.get(
   "/historico",
   adminAsistenciaController.obtenerHistorico
+)
+
+
+// =====================
+// CRUD ASISTENCIAS 🔥
+// =====================
+
+// obtener asistencias por fecha
+router.get(
+  "/asistencias",
+  adminAsistenciaController.obtenerAsistencias
+)
+
+// marcar asistencia (presente / ausente)
+router.post(
+  "/marcar",
+  adminAsistenciaController.marcarAsistencia
 )
 
 module.exports = router
