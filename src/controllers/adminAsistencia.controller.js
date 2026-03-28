@@ -51,6 +51,7 @@ exports.uploadAndHash = async (req,res)=>{
 
 /* ==========================
    OBTENER HISTORICO
+========================== */
 exports.obtenerHistorico = async (req,res)=>{
   try{
     const historico = await prisma.asistenciaHistorico.findMany({
@@ -68,6 +69,7 @@ exports.obtenerHistorico = async (req,res)=>{
 
 /* ==========================
    OBTENER ASISTENCIAS (CRUD)
+========================== */
 exports.obtenerAsistencias = async (req, res) => {
   try {
 
@@ -113,6 +115,7 @@ exports.obtenerAsistencias = async (req, res) => {
 
 /* ==========================
    MARCAR ASISTENCIA
+========================== */
 exports.marcarAsistencia = async (req, res) => {
   try {
     const { id_inscripcion, asistio } = req.body;
@@ -160,6 +163,13 @@ exports.marcarAsistencia = async (req, res) => {
   } catch (error) {
     console.error("ERROR ASISTENCIA:", error);
     res.status(500).json({ message: "Error registrando asistencia" });
+  }
+};
+
+
+/* ==========================
+   OBTENER DATOS PARA LA TABLA DE MONITOREO
+========================== */
 // 1. OBTENER DATOS PARA LA TABLA DE MONITOREO
 exports.getAsistenciasAdmin = async (req, res) => {
   try {
