@@ -5,7 +5,7 @@ const prisma = require("../../prisma/client");
 // 1. OBTENER DATOS PARA LA TABLA DE MONITOREO
 exports.getAsistenciasAdmin = async (req, res) => {
   try {
-    const { fecha, id_horario, estado, id_carrera } = req.query;
+    const { fecha, id_horario, estado, id_carrera, q } = req.query;
     
     // 👈 CORRECCIÓN ZONA HORARIA: Manejo explícito de la fecha para evitar desfases
     let fechaFiltro = new Date(); // Si no hay fecha, usa HOY con la hora local actual
@@ -23,14 +23,31 @@ exports.getAsistenciasAdmin = async (req, res) => {
     const finDia = new Date(fechaFiltro);
     finDia.setHours(23, 59, 59, 999);
 
+    const where = {
+      estado: 'aprobado',
+      id_horario: id_horario && id_horario !== 'Todos' ? Number(id_horario) : undefined,
+      usuario: {
+        id_carrera: id_carrera && id_carrera !== 'Todas' ? Number(id_carrera) : undefined
+      }
+    };
+
+    if (q && String(q).trim() !== '') {
+      const textoBusqueda = String(q).trim();
+      const posibleIdUsuario = parseInt(textoBusqueda, 10);
+
+      where.usuario.OR = [
+        { nombre: { contains: textoBusqueda } },
+        { apellido_paterno: { contains: textoBusqueda } },
+        { apellido_materno: { contains: textoBusqueda } }
+      ];
+
+      if (!Number.isNaN(posibleIdUsuario)) {
+        where.usuario.OR.push({ id_usuario: posibleIdUsuario });
+      }
+    }
+
     const inscripciones = await prisma.inscripcion.findMany({
-      where: {
-        estado: 'aprobado',
-        id_horario: id_horario && id_horario !== 'Todos' ? Number(id_horario) : undefined,
-        usuario: {
-          id_carrera: id_carrera && id_carrera !== 'Todas' ? Number(id_carrera) : undefined,
-        }
-      },
+      where,
       include: {
         usuario: { include: { carrera: true } },
         horario: true,
