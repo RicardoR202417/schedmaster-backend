@@ -2,12 +2,198 @@ const crypto = require("crypto");
 const fs = require("fs");
 const prisma = require("../../prisma/client");
 
+exports.uploadAndHash = async (req,res)=>{
+  try{
+    const file = req.file;
+    const {fecha,id_usuario} = req.body;
+
+    if(!file){
+      return res.status(400).json({ message:"No se recibió ningún archivo" });
+    }
+
+    const buffer = fs.readFileSync(file.path);
+
+    const hash = crypto
+      .createHash("sha256")
+      .update(buffer)
+      .digest("hex");
+
+    const existente = await prisma.asistenciaHistorico.findFirst({
+      where:{ hash_archivo:hash }
+    });
+
+    if(existente){
+      return res.json({ message:"Este archivo ya fue subido anteriormente" });
+    }
+
+    await prisma.asistenciaHistorico.create({
+      data:{
+        nombre_archivo:file.originalname,
+        ruta_archivo:`uploads/${file.filename}`,
+        hash_archivo:hash,
+        fecha_lista:new Date(fecha),
+        id_usuario:parseInt(id_usuario)
+      }
+    });
+
+    res.json({
+      message:"Archivo subido y hash generado con éxito",
+      filename:file.originalname,
+      hash:hash
+    });
+
+  }catch(error){
+    console.error(error);
+    res.status(500).json({ message:"Error al subir archivo" });
+  }
+};
+
+
+/* ==========================
+   OBTENER HISTORICO
+========================== */
+exports.obtenerHistorico = async (req,res)=>{
+  try{
+    const { q } = req.query;
+
+    const where = {};
+
+    if (q && String(q).trim() !== '') {
+      const textoBusqueda = String(q).trim();
+      const posibleId = parseInt(textoBusqueda, 10);
+
+      where.OR = [
+        { nombre_archivo: { contains: textoBusqueda } }
+      ];
+
+      if (!Number.isNaN(posibleId)) {
+        where.OR.push({ id_historico: posibleId });
+      }
+    }
+
+    const historico = await prisma.asistenciaHistorico.findMany({
+      where,
+      orderBy:{ fecha_lista:"desc" }
+    });
+
+    res.json(historico);
+
+  }catch(error){
+    console.error(error);
+    res.status(500).json({ message:"Error al obtener histórico" });
+  }
+};
+
+
+/* ==========================
+   OBTENER ASISTENCIAS (CRUD)
+========================== */
+exports.obtenerAsistencias = async (req, res) => {
+  try {
+
+    const asistencias = await prisma.inscripcion.findMany({
+      include: {
+        usuario: true,
+        horario: true,
+        asistencias: true
+      }
+    });
+
+    const formateadas = asistencias.map(a => {
+
+      let estado = "pendiente";
+
+      if (a.asistencias.length > 0) {
+        estado = a.asistencias[0].asistio ? "presente" : "ausente";
+      }
+
+      return {
+        id: a.id_inscripcion,
+        nombre: a.usuario.nombre,
+        apellido: a.usuario.apellido_paterno,
+        iniciales: a.usuario.nombre[0] + a.usuario.apellido_paterno[0],
+        horarioInicio: a.horario.hora_inicio,
+        horarioFin: a.horario.hora_fin,
+        tipoEntrenamiento: a.horario.tipo_actividad || "General",
+        carrera: a.usuario.id_carrera || "N/A",
+        matricula: a.usuario.id_usuario,
+        estado
+      };
+
+    });
+
+    res.json(formateadas);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error obteniendo asistencias" });
+  }
+};
+
+
+/* ==========================
+   MARCAR ASISTENCIA
+========================== */
+exports.marcarAsistencia = async (req, res) => {
+  try {
+    const { id_inscripcion, asistio } = req.body;
+
+    //Traer inscripción real
+    const inscripcion = await prisma.inscripcion.findUnique({
+      where: { id_inscripcion: parseInt(id_inscripcion) }
+    });
+
+    if (!inscripcion) {
+      return res.status(404).json({ message: "Inscripción no encontrada" });
+    }
+
+    //Evitar duplicados (IMPORTANTE)
+    const existente = await prisma.asistencia.findFirst({
+      where: {
+        id_inscripcion: inscripcion.id_inscripcion
+      }
+    });
+
+    if (existente) {
+      //Actualizar en lugar de crear
+      await prisma.asistencia.update({
+        where: { id_asistencia: existente.id_asistencia },
+        data: { asistio }
+      });
+
+      return res.json({ message: "Asistencia actualizada" });
+    }
+
+    //Crear correctamente
+    await prisma.asistencia.create({
+      data: {
+        id_usuario: inscripcion.id_usuario,
+        id_inscripcion: inscripcion.id_inscripcion,
+        id_horario: inscripcion.id_horario,
+        fecha: new Date(),
+        asistio,
+        id_registrado_por: inscripcion.id_usuario
+      }
+    });
+
+    res.json({ message: "Asistencia registrada" });
+
+  } catch (error) {
+    console.error("ERROR ASISTENCIA:", error);
+    res.status(500).json({ message: "Error registrando asistencia" });
+  }
+};
+
+
+/* ==========================
+   OBTENER DATOS PARA LA TABLA DE MONITOREO
+========================== */
 // 1. OBTENER DATOS PARA LA TABLA DE MONITOREO
 exports.getAsistenciasAdmin = async (req, res) => {
   try {
     const { fecha, id_horario, estado, id_carrera } = req.query;
     
-    // 👈 CORRECCIÓN ZONA HORARIA: Manejo explícito de la fecha para evitar desfases
+    //CORRECCIÓN ZONA HORARIA: Manejo explícito de la fecha para evitar desfases
     let fechaFiltro = new Date(); // Si no hay fecha, usa HOY con la hora local actual
     
     if (fecha) {
@@ -163,7 +349,25 @@ exports.uploadAndHash = async (req, res) => {
 // 4. OBTENER HISTÓRICO
 exports.obtenerHistorico = async (req, res) => {
   try {
+    const { q } = req.query;
+
+    const where = {};
+
+    if (q && String(q).trim() !== '') {
+      const textoBusqueda = String(q).trim();
+      const posibleId = parseInt(textoBusqueda, 10);
+
+      where.OR = [
+        { nombre_archivo: { contains: textoBusqueda } }
+      ];
+
+      if (!Number.isNaN(posibleId)) {
+        where.OR.push({ id_historico: posibleId });
+      }
+    }
+
     const historico = await prisma.asistenciaHistorico.findMany({
+      where,
       orderBy: { fecha_lista: "desc" }
     });
     res.json(historico);
