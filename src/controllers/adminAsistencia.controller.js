@@ -2,193 +2,9 @@ const crypto = require("crypto");
 const fs = require("fs");
 const prisma = require("../../prisma/client");
 
-exports.uploadAndHash = async (req,res)=>{
-  try{
-    const file = req.file;
-    const {fecha,id_usuario} = req.body;
-
-    if(!file){
-      return res.status(400).json({ message:"No se recibió ningún archivo" });
-    }
-
-    const buffer = fs.readFileSync(file.path);
-
-    const hash = crypto
-      .createHash("sha256")
-      .update(buffer)
-      .digest("hex");
-
-    const existente = await prisma.asistenciaHistorico.findFirst({
-      where:{ hash_archivo:hash }
-    });
-
-    if(existente){
-      return res.json({ message:"Este archivo ya fue subido anteriormente" });
-    }
-
-    await prisma.asistenciaHistorico.create({
-      data:{
-        nombre_archivo:file.originalname,
-        ruta_archivo:`uploads/${file.filename}`,
-        hash_archivo:hash,
-        fecha_lista:new Date(fecha),
-        id_usuario:parseInt(id_usuario)
-      }
-    });
-
-    res.json({
-      message:"Archivo subido y hash generado con éxito",
-      filename:file.originalname,
-      hash:hash
-    });
-
-  }catch(error){
-    console.error(error);
-    res.status(500).json({ message:"Error al subir archivo" });
-  }
-};
-
-
 /* ==========================
-   OBTENER HISTORICO
+   1. OBTENER DATOS PARA LA TABLA DE MONITOREO
 ========================== */
-exports.obtenerHistorico = async (req,res)=>{
-  try{
-    const { q } = req.query;
-
-    const where = {};
-
-    if (q && String(q).trim() !== '') {
-      const textoBusqueda = String(q).trim();
-      const posibleId = parseInt(textoBusqueda, 10);
-
-      where.OR = [
-        { nombre_archivo: { contains: textoBusqueda } }
-      ];
-
-      if (!Number.isNaN(posibleId)) {
-        where.OR.push({ id_historico: posibleId });
-      }
-    }
-
-    const historico = await prisma.asistenciaHistorico.findMany({
-      where,
-      orderBy:{ fecha_lista:"desc" }
-    });
-
-    res.json(historico);
-
-  }catch(error){
-    console.error(error);
-    res.status(500).json({ message:"Error al obtener histórico" });
-  }
-};
-
-
-/* ==========================
-   OBTENER ASISTENCIAS (CRUD)
-========================== */
-exports.obtenerAsistencias = async (req, res) => {
-  try {
-
-    const asistencias = await prisma.inscripcion.findMany({
-      include: {
-        usuario: true,
-        horario: true,
-        asistencias: true
-      }
-    });
-
-    const formateadas = asistencias.map(a => {
-
-      let estado = "pendiente";
-
-      if (a.asistencias.length > 0) {
-        estado = a.asistencias[0].asistio ? "presente" : "ausente";
-      }
-
-      return {
-        id: a.id_inscripcion,
-        nombre: a.usuario.nombre,
-        apellido: a.usuario.apellido_paterno,
-        iniciales: a.usuario.nombre[0] + a.usuario.apellido_paterno[0],
-        horarioInicio: a.horario.hora_inicio,
-        horarioFin: a.horario.hora_fin,
-        tipoEntrenamiento: a.horario.tipo_actividad || "General",
-        carrera: a.usuario.id_carrera || "N/A",
-        matricula: a.usuario.id_usuario,
-        estado
-      };
-
-    });
-
-    res.json(formateadas);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Error obteniendo asistencias" });
-  }
-};
-
-
-/* ==========================
-   MARCAR ASISTENCIA
-========================== */
-exports.marcarAsistencia = async (req, res) => {
-  try {
-    const { id_inscripcion, asistio } = req.body;
-
-    //Traer inscripción real
-    const inscripcion = await prisma.inscripcion.findUnique({
-      where: { id_inscripcion: parseInt(id_inscripcion) }
-    });
-
-    if (!inscripcion) {
-      return res.status(404).json({ message: "Inscripción no encontrada" });
-    }
-
-    //Evitar duplicados (IMPORTANTE)
-    const existente = await prisma.asistencia.findFirst({
-      where: {
-        id_inscripcion: inscripcion.id_inscripcion
-      }
-    });
-
-    if (existente) {
-      //Actualizar en lugar de crear
-      await prisma.asistencia.update({
-        where: { id_asistencia: existente.id_asistencia },
-        data: { asistio }
-      });
-
-      return res.json({ message: "Asistencia actualizada" });
-    }
-
-    //Crear correctamente
-    await prisma.asistencia.create({
-      data: {
-        id_usuario: inscripcion.id_usuario,
-        id_inscripcion: inscripcion.id_inscripcion,
-        id_horario: inscripcion.id_horario,
-        fecha: new Date(),
-        asistio,
-        id_registrado_por: inscripcion.id_usuario
-      }
-    });
-
-    res.json({ message: "Asistencia registrada" });
-
-  } catch (error) {
-    console.error("ERROR ASISTENCIA:", error);
-    res.status(500).json({ message: "Error registrando asistencia" });
-  }
-};
-
-
-/* ==========================
-   OBTENER DATOS PARA LA TABLA DE MONITOREO
-========================== */
-// 1. OBTENER DATOS PARA LA TABLA DE MONITOREO
 exports.getAsistenciasAdmin = async (req, res) => {
   try {
     const { fecha, id_horario, estado, id_carrera } = req.query;
@@ -256,7 +72,9 @@ exports.getAsistenciasAdmin = async (req, res) => {
   }
 };
 
-// 2. REGISTRAR ASISTENCIA (EL BOTÓN DE LA TABLA)
+/* ==========================
+   2. REGISTRAR ASISTENCIA (EL BOTÓN DE LA TABLA)
+========================== */
 exports.registrarAsistencia = async (req, res) => {
   try {
     const { id_usuario, id_inscripcion, id_horario, asistio, id_registrado_por, fecha_registro } = req.body;
@@ -312,7 +130,9 @@ exports.registrarAsistencia = async (req, res) => {
   }
 };
 
-// 3. SUBIR ARCHIVO Y GENERAR HASH (TU LÓGICA)
+/* ==========================
+   3. SUBIR ARCHIVO Y GENERAR HASH 
+========================== */
 exports.uploadAndHash = async (req, res) => {
   try {
     const file = req.file;
@@ -346,7 +166,9 @@ exports.uploadAndHash = async (req, res) => {
   }
 };
 
-// 4. OBTENER HISTÓRICO
+/* ==========================
+   4. OBTENER HISTÓRICO
+========================== */
 exports.obtenerHistorico = async (req, res) => {
   try {
     const { q } = req.query;
@@ -373,5 +195,105 @@ exports.obtenerHistorico = async (req, res) => {
     res.json(historico);
   } catch (error) {
     res.status(500).json({ message: "Error al obtener histórico" });
+  }
+};
+
+/* ==========================
+   5. GENERAR REPORTE COMPLETO DE ESTADÍSTICAS
+========================== */
+exports.getReporteEstadisticas = async (req, res) => {
+  try {
+    // Buscamos todas las inscripciones aprobadas y traemos la data del usuario, carrera, horario y asistencias
+    const inscripciones = await prisma.inscripcion.findMany({
+      where: { estado: 'aprobado' },
+      include: {
+        usuario: {
+          include: { carrera: true }
+        },
+        horario: true,
+        asistencias: true
+      }
+    });
+
+    const reporte = inscripciones.map((ins, index) => {
+      // 1. Calculamos el total de asistencias en las que se le dio clic a "Presente" o "Ausente"
+      const totalAsistencias = ins.asistencias.length;
+      
+      // 2. Calculamos cuántas de esas fueron "Presente"
+      const asistenciasPresente = ins.asistencias.filter(a => a.asistio).length;
+      
+      // 3. Regla de 3 para el porcentaje
+      const porcentaje = totalAsistencias > 0 
+        ? Math.round((asistenciasPresente / totalAsistencias) * 100) 
+        : 0;
+
+      // Extraer matrícula del correo (por si su correo es 202171004@uteq.edu.mx)
+      const matriculaExtraida = ins.usuario.correo ? ins.usuario.correo.split('@')[0] : 'N/A';
+
+      return {
+        id: ins.id_inscripcion || index, // Por si acaso
+        matricula: matriculaExtraida,
+        nombre: `${ins.usuario.nombre} ${ins.usuario.apellido_paterno} ${ins.usuario.apellido_materno}`.trim(),
+        carrera: ins.usuario.carrera?.nombre_carrera || 'N/A',
+        servicio: ins.horario.tipo_actividad || 'General',
+        asistencia: `${porcentaje}%`,
+        estado: ins.estado === 'aprobado' ? 'Activo' : 'Inactivo'
+      };
+    });
+
+    res.json(reporte);
+  } catch (error) {
+    console.error("❌ Error generando reporte:", error);
+    res.status(500).json({ message: "Error al generar el reporte" });
+  }
+};
+
+/* ==========================
+   6. OBTENER STATS PRINCIPALES PARA EL DASHBOARD
+========================== */
+exports.getDashboardStats = async (req, res) => {
+  try {
+    const inscripcionesPendientes = await prisma.inscripcion.count({ where: { estado: 'pendiente' } });
+    const usuariosRegistrados = await prisma.usuario.count({ where: { activo: true } });
+
+    const hoy = new Date();
+    const inicioDia = new Date(hoy.setHours(0, 0, 0, 0));
+    const finDia = new Date(hoy.setHours(23, 59, 59, 999));
+    const asistenciasHoy = await prisma.asistencia.count({
+      where: { fecha: { gte: inicioDia, lte: finDia }, asistio: true }
+    });
+
+    const serviciosActivos = await prisma.periodo.count({ where: { estado: 'activo' } });
+
+    // 👈 NUEVO: Traer las últimas 5 inscripciones pendientes para la tabla rápida
+    const ultimasPendientesRaw = await prisma.inscripcion.findMany({
+      where: { estado: 'pendiente' },
+      orderBy: { fecha_inscripcion: 'desc' },
+      take: 5, // Solo traemos 5 para no saturar el Dashboard
+      include: {
+        usuario: { include: { carrera: true } },
+        horario: true
+      }
+    });
+
+    // Formateamos los datos para que el Frontend los lea fácil
+    const ultimasPendientes = ultimasPendientesRaw.map(ins => ({
+      id: ins.id_inscripcion,
+      nombre: `${ins.usuario.nombre} ${ins.usuario.apellido_paterno}`,
+      carrera: ins.usuario.carrera?.nombre_carrera || 'N/A',
+      servicio: ins.horario.tipo_actividad || 'General',
+      fecha: ins.fecha_inscripcion
+    }));
+
+    res.json({
+      inscripcionesPendientes,
+      usuariosRegistrados,
+      asistenciasHoy,
+      serviciosActivos,
+      ultimasPendientes // 👈 Lo agregamos a la respuesta
+    });
+  } catch (error) {
+    console.error("❌ Error obteniendo stats del dashboard:", error);
+    res.status(500).json({ message: "Error al obtener estadísticas del dashboard" });
   }
 };
