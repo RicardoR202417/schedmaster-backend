@@ -2,9 +2,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const prisma = require("../../prisma/client");
 
-/* ==========================
-   1. OBTENER DATOS PARA LA TABLA DE MONITOREO
-========================== */
+
 exports.getAsistenciasAdmin = async (req, res) => {
   try {
     const { fecha, id_horario, estado, id_carrera } = req.query;
@@ -128,9 +126,7 @@ exports.registrarAsistencia = async (req, res) => {
   }
 };
 
-/* ==========================
-   3. SUBIR ARCHIVO Y GENERAR HASH 
-========================== */
+
 exports.uploadAndHash = async (req, res) => {
   try {
     const file = req.file;
@@ -164,9 +160,7 @@ exports.uploadAndHash = async (req, res) => {
   }
 };
 
-/* ==========================
-   4. OBTENER HISTÓRICO
-========================== */
+
 exports.obtenerHistorico = async (req, res) => {
   try {
     const { q } = req.query;
@@ -196,9 +190,7 @@ exports.obtenerHistorico = async (req, res) => {
   }
 };
 
-/* ==========================
-   5. GENERAR REPORTE COMPLETO DE ESTADÍSTICAS
-========================== */
+
 exports.getReporteEstadisticas = async (req, res) => {
   try {
     // Buscamos todas las inscripciones aprobadas y traemos la data del usuario, carrera, horario y asistencias
@@ -246,9 +238,7 @@ exports.getReporteEstadisticas = async (req, res) => {
   }
 };
 
-/* ==========================
-   6. OBTENER STATS PRINCIPALES PARA EL DASHBOARD
-========================== */
+
 exports.getDashboardStats = async (req, res) => {
   try {
     const inscripcionesPendientes = await prisma.inscripcion.count({ where: { estado: 'pendiente' } });
