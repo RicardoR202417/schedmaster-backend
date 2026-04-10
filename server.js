@@ -31,8 +31,8 @@ app.use(cors({
   origin: function (origin, callback) {
     console.log("🌍 Origin recibido:", origin);
 
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, origin); // 👈 CLAVE
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
+      callback(null, origin);
     } else {
       callback(new Error('No permitido por CORS'));
     }
