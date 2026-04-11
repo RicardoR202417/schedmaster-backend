@@ -8,6 +8,7 @@ async function sendMail({ from, to, subject, text, html }) {
         "Content-Type": "application/json",
         "api-key": process.env.BREVO_API_KEY
       },
+      // redeploy
       body: JSON.stringify({
         sender: { name: "SchedMaster", email: "a7c330001@smtp-brevo.com" },
         to: [{ email: to }],
