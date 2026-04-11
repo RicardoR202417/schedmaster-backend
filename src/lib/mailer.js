@@ -10,7 +10,7 @@ async function sendMail({ from, to, subject, text, html }) {
       },
       // redeploy
       body: JSON.stringify({
-        sender: { name: "SchedMaster", email: "a7c330001@smtp-brevo.com" },
+        sender: { name: "SchedMaster", email: "schedmasteruteq@gmail.com" },
         to: [{ email: to }],
         subject,
         textContent: text,
