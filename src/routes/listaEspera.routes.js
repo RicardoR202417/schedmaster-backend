@@ -6,6 +6,6 @@ const controller = require('../controllers/listaEspera.controller');
 router.get('/convocatoria-activa', controller.getConvocatoriaActiva);
 
 
-router.post('/lista-espera', controller.registrarCorreo);
+router.post('/', controller.registrarCorreo);
 
 module.exports = router;
