@@ -82,9 +82,11 @@ const anuncioRoutes = require('./src/routes/anuncio.routes');
 
 app.use('/api/anuncios', anuncioRoutes);
 
-// ✅ SOLO esto (sin volver a declarar express)
+// SOLO esto (sin volver a declarar express)
 app.use('/imagenes', express.static('public/imagenes'));
 
+const neuronaRoutes = require('./src/routes/neurona')
+app.use('/api/neurona', neuronaRoutes)
 // ==========================================
 // Puerto y Encendido
 // ==========================================
